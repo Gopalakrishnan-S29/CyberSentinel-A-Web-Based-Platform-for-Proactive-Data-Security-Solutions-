@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>TraceNet Recon</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .found { color: green; font-weight: bold; }
+        .notfound { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>TraceNet Recon Tool</h1>
+    <form method="POST">
+        <label for="target">Enter username or email:</label>
+        <input type="text" name="target" id="target" required>
+        <button type="submit">Scan</button>
+    </form>
+
+    {% if target %}
+        <h2>Results for: {{ target }}</h2>
+
+        {% if result.type == 'username' %}
+            <table>
+                <tr>
+                    <th>Platform</th>
+                    <th>URL</th>
+                    <th>Status</th>
+                </tr>
+                {% for r in result.results %}
+                <tr>
+                    <td>{{ r.platform }}</td>
+                    <td><a href="{{ r.url }}" target="_blank">{{ r.url }}</a></td>
+                    <td class="{{ 'found' if r.found else 'notfound' }}">
+                        {{ 'Found' if r.found else 'Not Found' }}
+                        {% if r.http_status %} ({{ r.http_status }}){% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>
+        {% elif result.type == 'email' %}
+            <h3>Email Breaches:</h3>
+            {% if result.breaches is none %}
+                <p>No HIBP API key set, cannot check breaches.</p>
+            {% elif result.breaches|length == 0 %}
+                <p>No breaches found for this email.</p>
+            {% else %}
+                <ul>
+                {% for b in result.breaches %}
+                    <li>{{ b.Name }} ({{ b.BreachDate }})</li>
+                {% endfor %}
+                </ul>
+            {% endif %}
+        {% endif %}
+    {% endif %}
+</body>
+</html>

@@ -5,8 +5,11 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from flask_apscheduler import APScheduler
 
+
+
 # ===== Ensure tools package importable =====
 from tools.portguardian import get_listening_ports, RISKY_PORTS
+from tools.tracenet import TraceNet
 
 app = Flask(__name__)
 app.secret_key = "supersecret"  # Needed for flash messages
@@ -64,6 +67,25 @@ def send_port_report():
 
     return redirect(url_for("portguardian"))
 
+# -------- TraceNet Recon Module (new) --------
+@app.route("/tracenet", methods=["GET", "POST"])
+def tracenet():
+    """
+    GET: show form
+    POST: run TraceNet.run_recon() and render results
+    """
+    if request.method == "POST":
+        target = request.form.get("target", "").strip()
+        if not target:
+            flash("⚠️ Please enter a target (hostname or IP).", "warning")
+            return redirect(url_for("tracenet"))
+
+        tracer = TraceNet(target)
+        result = tracer.run_recon()
+        return render_template("tracenet.html", target=target, result=result)
+
+    # GET
+    return render_template("tracenet.html", target=None, result=None)
 
 # ==== Scheduled Email Functions ====
 def generate_risky_report():
@@ -153,10 +175,6 @@ def logsentinel():
 def stegguardian():
     return render_template("stegguardian.html")
 
-@app.route("/tracenet")
-def tracenet():
-    return render_template("tracenet.html")
-
 @app.route("/metaspy")
 def metaspy():
     return render_template("metaspy.html")
@@ -176,4 +194,7 @@ def crawleye():
 
 # ---- Run the app ----
 if __name__ == "__main__":
-    app.run(debug=True)
+    host = os.environ.get("FLASK_HOST", "127.0.0.1")
+    port = int(os.environ.get("FLASK_PORT", 5000))
+    debug = os.environ.get("FLASK_DEBUG", "1") == "1"
+    app.run(debug=debug, host=host, port=port)
