@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+:root{
+  --bg:#000;
+  --panel:#111;
+  --text:#e0e0e0;
+  --accent:#33aaff;
+}
+
+/* Page container */
+.container{
+  max-width:1100px;
+  margin:20px auto;
+  color:var(--text);
+}
+
+/* Header */
+.header{
+  text-align:center;
+  margin-bottom:20px;
+}
+
+.header h1{
+  font-size:2.2rem;
+  text-shadow:2px 2px 0 var(--accent);
+}
+
+.header p{
+  color:#aaa;
+  font-size:0.95rem;
+}
+
+/* Upload-style crawl box */
+.crawl-box{
+  max-width:720px;
+  margin:30px auto;
+  padding:10px;
+  background:var(--panel);
+  border:2px dashed var(--accent);
+  border-radius:14px;
+  text-align:center;
+}
+
+.crawl-box h3{
+  margin-top:0;
+  color:var(--accent);
+}
+
+.crawl-box p{
+  color:#aaa;
+  font-size:0.95rem;
+  margin-bottom:20px;
+}
+
+.crawl-inputs{
+  display:flex;
+  gap:12px;
+  justify-content:center;
+  flex-wrap:wrap;
+}
+
+.crawl-inputs input{
+  padding:12px;
+  border-radius:8px;
+  background:#0c0c0c;
+  border:2px solid var(--accent);
+  color:var(--text);
+}
+
+.crawl-inputs input[type="text"]{
+  width:380px;
+}
+
+.crawl-inputs input[type="number"]{
+  width:120px;
+}
+
+.crawl-inputs button{
+  padding:12px 22px;
+  border-radius:8px;
+  border:none;
+  background:var(--accent);
+  color:#fff;
+  font-weight:700;
+  cursor:pointer;
+}
+
+/* Result panel */
+.panel{
+  background:var(--panel);
+  padding:20px;
+  border-radius:12px;
+  margin-top:30px;
+}
+
+/* Tables */
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:12px;
+  table-layout:fixed;
+}
+
+th,td{
+  padding:8px;
+  border:1px solid #222;
+  vertical-align:top;
+  word-break:break-word;
+}
+
+th{
+  background:#101010;
+  color:var(--accent);
+  text-align:left;
+}
+
+/* URL table */
+th:nth-child(1), td:nth-child(1){ width:60px; }
+th:nth-child(2), td:nth-child(2){ width:auto; }
+th:nth-child(3), td:nth-child(3){ width:140px; }
+
+/* Badges */
+.badge-high{
+  color:#ff6b6b;
+  font-weight:700;
+}
+
+.badge-ok{
+  color:#4caf50;
+  font-weight:700;
+}
+
+.small{
+  color:#aaa;
+  font-size:0.9rem;
+}
+</style>
+
+<div class="container">
+
+  <!-- ===== Header ===== -->
+  <div class="header">
+    <h1>CrawlEye 🕷️ — Website Surface Mapper</h1>
+    <p>
+      Passively maps a website to discover exposed pages, hidden paths,
+      and risky endpoints.
+    </p>
+  </div>
+
+  <!-- ===== Upload-style Crawl Box ===== -->
+  <form method="POST">
+    <div class="crawl-box">
+      <h3>🌐 Crawl a Website</h3>
+      <p>Enter a target URL and the maximum number of pages to crawl.</p>
+
+      <div class="crawl-inputs">
+        <input
+          type="text"
+          name="target"
+          placeholder="https://example.com"
+          required
+          value="{{ target or '' }}"
+        >
+
+        <input
+          type="number"
+          name="depth"
+          value="{{ depth or 50 }}"
+          min="10"
+          max="200"
+        >
+
+        <button type="submit">Start Crawl</button>
+      </div>
+    </div>
+  </form>
+
+  <!-- ===== Results ===== -->
+  {% if result %}
+  <div class="panel">
+    <h3>🎯 Target: <span class="small">{{ result.base_url }}</span></h3>
+    <p class="small">Total Pages Discovered: {{ result.total_urls }}</p>
+
+    <!-- Sensitive Paths -->
+    <h4>⚠️ Sensitive Paths Detected</h4>
+    {% if result.sensitive %}
+      <ul>
+        {% for s in result.sensitive %}
+          <li class="badge-high">{{ s.path }} ({{ s.status }})</li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="badge-ok">No common sensitive paths detected</p>
+    {% endif %}
+
+    <!-- robots.txt -->
+    <h4>🤖 robots.txt Disallowed Paths</h4>
+    {% if result.robots %}
+      <ul>
+        {% for r in result.robots %}
+          <li>{{ r }}</li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="small">No disallowed paths found</p>
+    {% endif %}
+
+    <!-- sitemap.xml -->
+    <h4>🗺️ sitemap.xml URLs</h4>
+    {% if result.sitemap %}
+      <ul>
+        {% for s in result.sitemap %}
+          <li><a href="{{ s }}" target="_blank">{{ s }}</a></li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="small">No sitemap.xml found</p>
+    {% endif %}
+
+    <!-- Discovered URLs -->
+    <h4>🔗 Discovered URLs</h4>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>URL</th>
+          <th>Type</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in result.urls %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td><a href="{{ u }}" target="_blank">{{ u }}</a></td>
+          <td>
+            {% if 'admin' in u or 'login' in u or 'config' in u %}
+              <span class="badge-high">High-Value</span>
+            {% else %}
+              Normal
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

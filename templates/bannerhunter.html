@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+:root{
+  --bg:#000;
+  --panel:#111;
+  --text:#e0e0e0;
+  --accent:#33aaff;
+}
+
+/* Layout */
+.container{
+  max-width:1100px;
+  margin:20px auto;
+  color:var(--text);
+}
+
+.header{
+  text-align:center;
+  margin-bottom:14px;
+}
+
+h1{
+  font-size:2.2rem;
+  text-shadow:2px 2px 0 var(--accent);
+}
+
+.small{
+  color:#999;
+  font-size:0.9rem;
+}
+
+/* Form */
+.form-row{
+  display:flex;
+  gap:10px;
+  margin-bottom:14px;
+}
+
+.form-row input{
+  padding:10px;
+  border-radius:8px;
+  background:#0c0c0c;
+  border:2px solid var(--accent);
+  color:var(--text);
+}
+
+.form-row input[name="target"]{
+  flex:1;
+}
+
+.form-row input[name="ports"]{
+  width:260px;
+}
+
+.form-row button{
+  width:140px;
+  padding:10px;
+  border-radius:8px;
+  border:none;
+  background:var(--accent);
+  color:#fff;
+  font-weight:700;
+  cursor:pointer;
+}
+
+/* Panel */
+.panel{
+  background:var(--panel);
+  padding:18px;
+  border-radius:10px;
+  margin-top:18px;
+}
+
+/* Table */
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:12px;
+  table-layout:fixed; /* ⭐ critical for alignment */
+}
+
+th,td{
+  padding:8px;
+  border:1px solid #222;
+  vertical-align:top;
+  color:var(--text);
+  word-wrap:break-word;
+}
+
+th{
+  color:var(--accent);
+  background:#101010;
+  text-align:left;
+}
+
+/* Column widths */
+th:nth-child(1), td:nth-child(1){ width:120px; } /* IP */
+th:nth-child(2), td:nth-child(2){ width:70px; }  /* Port */
+th:nth-child(3), td:nth-child(3){ width:150px; } /* Product */
+th:nth-child(4), td:nth-child(4){ width:90px; }  /* Version */
+th:nth-child(5), td:nth-child(5){ width:180px; } /* Risk */
+th:nth-child(6), td:nth-child(6){ width:auto; }  /* Banner */
+
+/* Banner block */
+pre{
+  background:#0b0b0b;
+  padding:8px;
+  border-radius:6px;
+  max-height:140px;
+  overflow:auto;          /* scroll instead of stretch */
+  white-space:pre-wrap;
+  word-break:break-word;
+  font-size:0.85rem;
+}
+
+/* Risk colors */
+.risk-ok{
+  color:#4caf50;
+  font-weight:700;
+}
+
+.risk-bad{
+  color:#ffb74d;
+  font-weight:700;
+}
+
+.risk-unknown{
+  color:#ccc;
+}
+</style>
+
+<div class="container">
+
+  <div class="header">
+    <h1>BannerHunter — Service Fingerprinter 🚩</h1>
+    <p class="small">
+      Grab service banners and identify product + version.
+      Risk flags are heuristic — always verify manually.
+    </p>
+  </div>
+
+  <form action="{{ url_for('bannerhunter') }}" method="POST" class="form-row" autocomplete="off">
+    <input
+      type="text"
+      name="target"
+      placeholder="Hostname or IP (e.g. scanme.nmap.org)"
+      required
+      value="{{ target or '' }}"
+    >
+    <input
+      type="text"
+      name="ports"
+      placeholder="Ports (e.g. 22,80,443)"
+      value="{{ ports or '' }}"
+    >
+    <button type="submit">Scan</button>
+  </form>
+
+  {% if target %}
+  <div class="panel">
+    <h3>Results for: <span class="small">{{ target }}</span></h3>
+    <div class="small">Scanned at: {{ result.scanned_at if result else '—' }}</div>
+
+    {% if result.note %}
+      <p class="small">{{ result.note }}</p>
+    {% endif %}
+
+    {% if result.entries %}
+    <table>
+      <thead>
+        <tr>
+          <th>IP</th>
+          <th>Port</th>
+          <th>Product</th>
+          <th>Version</th>
+          <th>Risk</th>
+          <th>Banner / Raw</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in result.entries %}
+        <tr>
+          <td>{{ e.ip }}</td>
+          <td>{{ e.port }}</td>
+          <td>{{ e.product or '-' }}</td>
+          <td>{{ e.version or '-' }}</td>
+          <td>
+            {% if e.risk == 'ok' %}
+              <span class="risk-ok">OK</span>
+            {% elif e.risk == 'potentially_outdated' %}
+              <span class="risk-bad">⚠️ Potentially outdated</span>
+            {% else %}
+              <span class="risk-unknown">Unknown</span>
+            {% endif %}
+          </td>
+          <td>
+            <pre>{{ e.raw or e.error or '(no banner)' }}</pre>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <p class="small">No entries collected.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

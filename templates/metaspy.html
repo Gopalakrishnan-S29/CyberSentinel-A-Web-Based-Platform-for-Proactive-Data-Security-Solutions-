@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+:root{
+  --bg:#000;
+  --panel:#111;
+  --text:#e0e0e0;
+  --accent:#33aaff;
+}
+
+/* Container */
+.container{
+  max-width:1000px;
+  margin:20px auto;
+  color:var(--text);
+}
+
+/* Header */
+.header{
+  text-align:center;
+  margin-bottom:18px;
+}
+
+.header h1{
+  font-size:2.4rem;
+  text-shadow:2px 2px 0 var(--accent);
+}
+
+.header p{
+  color:#aaa;
+  font-size:0.95rem;
+}
+
+/* Upload panel (TraceNet-style row) */
+.panel{
+  background:var(--panel);
+  padding:22px;
+  border-radius:12px;
+}
+
+.upload-row{
+  display:flex;
+  gap:12px;
+  align-items:center;
+}
+
+.upload-row input[type="file"]{
+  flex:1;
+  padding:12px;
+  border-radius:10px;
+  background:#0c0c0c;
+  border:2px solid var(--accent);
+  color:var(--text);
+}
+
+/* TraceNet-style button */
+.upload-row button{
+  width:160px;
+  padding:12px;
+  border-radius:10px;
+  border:none;
+  background:var(--accent);
+  color:#fff;
+  font-size:1rem;
+  font-weight:700;
+  cursor:pointer;
+}
+
+/* Results */
+.small{color:#bbb}
+.kv{
+  display:flex;
+  gap:10px;
+  margin-bottom:6px;
+  align-items:flex-start;
+}
+.kv b{width:180px}
+
+pre{
+  background:#0b0b0b;
+  padding:10px;
+  border-radius:6px;
+  overflow:auto;
+  white-space:pre-wrap;
+}
+
+ul{padding-left:18px}
+</style>
+
+<div class="container">
+
+  <!-- ===== Header ===== -->
+  <div class="header">
+    <h1 style="color:black">
+      MetaSpy — Metadata Extractor 🕵️
+    </h1>
+    <p>
+      Upload image / PDF / DOCX to extract hidden metadata.
+      Only upload files you own or have permission to analyze.
+    </p>
+  </div>
+
+  <!-- ===== Upload (TraceNet-style) ===== -->
+  <div class="panel">
+    <form action="{{ url_for('metaspy') }}" method="POST" enctype="multipart/form-data">
+      <div class="upload-row">
+        <input
+          type="file"
+          name="file"
+          accept=".jpg,.jpeg,.png,.tif,.tiff,.pdf,.docx"
+          required
+        >
+        <button type="submit">Analyze</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ===== Results ===== -->
+  {% if target %}
+  <div class="panel" style="margin-top:18px">
+    <h3>Results — {{ target }}</h3>
+
+    {% if result.error %}
+      <div class="small">Error: {{ result.error }}</div>
+    {% endif %}
+
+    <div class="kv"><b>Filename:</b><div>{{ result.filename }}</div></div>
+    <div class="kv"><b>File size:</b><div>{{ result.file_size }} bytes</div></div>
+    <div class="kv"><b>Type:</b><div>{{ result.type }} ({{ result.mime }})</div></div>
+    <div class="kv"><b>FS created:</b><div>{{ result.fs_created }}</div></div>
+    <div class="kv"><b>FS modified:</b><div>{{ result.fs_modified }}</div></div>
+
+    <hr style="border:none;border-top:1px solid #1a1a1a;margin:14px 0">
+
+    <h4>Extracted Metadata</h4>
+    {% if result.metadata %}
+      <ul>
+        {% for k,v in result.metadata.items() %}
+          <li>
+            <strong>{{ k }}</strong>:
+            {% if v is mapping %}
+              <pre>{{ v | tojson(indent=2) }}</pre>
+            {% else %}
+              <span style="word-break:break-word">{{ v }}</span>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="small">No metadata found.</div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

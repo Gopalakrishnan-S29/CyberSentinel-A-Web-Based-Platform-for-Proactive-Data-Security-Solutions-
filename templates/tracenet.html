@@ -1,60 +1,131 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>TraceNet Recon</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
-        .found { color: green; font-weight: bold; }
-        .notfound { color: red; font-weight: bold; }
-    </style>
-</head>
-<body>
-    <h1>TraceNet Recon Tool</h1>
-    <form method="POST">
-        <label for="target">Enter username or email:</label>
-        <input type="text" name="target" id="target" required>
-        <button type="submit">Scan</button>
-    </form>
+{# templates/tracenet.html #}
+{% extends "base.html" %}
 
-    {% if target %}
-        <h2>Results for: {{ target }}</h2>
+{% block content %}
+<style>
+/* compact dark theme styling adapted from your original */
+:root{
+  --bg:#000;
+  --panel:#111;
+  --text:#e0e0e0;
+  --accent:#33aaff;
+  --success:#4caf50;
+  --danger:#f44336;
+}
+.container {
+  max-width: 1000px;
+  margin: 12px auto;
+  color: var(--text);
+}
+.header {
+  text-align:center;
+  margin-bottom:8px;
+}
+h1 { font-size:2.6rem; letter-spacing:1px; text-shadow:2px 2px 0 var(--accent); }
+.subtitle { color:#ccc; margin-bottom:18px; }
 
-        {% if result.type == 'username' %}
-            <table>
-                <tr>
-                    <th>Platform</th>
-                    <th>URL</th>
-                    <th>Status</th>
-                </tr>
-                {% for r in result.results %}
-                <tr>
-                    <td>{{ r.platform }}</td>
-                    <td><a href="{{ r.url }}" target="_blank">{{ r.url }}</a></td>
-                    <td class="{{ 'found' if r.found else 'notfound' }}">
-                        {{ 'Found' if r.found else 'Not Found' }}
-                        {% if r.http_status %} ({{ r.http_status }}){% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </table>
-        {% elif result.type == 'email' %}
-            <h3>Email Breaches:</h3>
-            {% if result.breaches is none %}
-                <p>No HIBP API key set, cannot check breaches.</p>
-            {% elif result.breaches|length == 0 %}
-                <p>No breaches found for this email.</p>
-            {% else %}
-                <ul>
-                {% for b in result.breaches %}
-                    <li>{{ b.Name }} ({{ b.BreachDate }})</li>
-                {% endfor %}
-                </ul>
-            {% endif %}
+.form-row { display:flex; gap:8px; margin-bottom:12px; }
+.form-row input[type="text"]{
+  flex:1; padding:12px 14px; border-radius:8px; background:#0c0c0c; border:2px solid var(--accent); color:var(--text);
+}
+.form-row button {
+  width:150px; padding:12px; border-radius:8px; border:none; background:var(--accent); color:#fff; font-weight:700;
+}
+
+.panel {
+  background:var(--panel); padding:22px; border-radius:10px; margin-top:18px; text-align:left;
+}
+table { width:100%; border-collapse:collapse; margin-top:12px; }
+th, td { padding:10px; border:1px solid #222; font-family:Arial, sans-serif; color:var(--text); }
+th { color:var(--accent); background:#121212; font-weight:600; text-align:left; }
+
+.found { color:var(--success); font-weight:700; }
+.notfound { color:var(--danger); font-weight:700; }
+
+.small { color:#999; font-size:0.9rem; }
+</style>
+
+<div class="container">
+  <div class="header">
+    <h1 style="color:#0c0c0c">TraceNet Recon 🔎</h1>
+    <p class="subtitle">Check username presence across platforms </p>
+  </div>
+
+  <!-- IMPORTANT: action uses url_for('tracenet') because app.py defines the tracenet() route -->
+  <form action="{{ url_for('tracenet') }}" method="POST" class="form-row" autocomplete="off">
+    <input type="text" name="target" id="target" placeholder="Enter username" required value="{{ target or '' }}">
+    <button type="submit">Scan</button>
+   
+    
+  </form>
+   <br>
+  <br><div style="font-family:Arial, sans-serif;">
+ <p style="color: red"> Note: </p> <p style="color:black">The TraceNet can use the Passive Scanning only.</p> </div>
+  {% if target %}
+  <div class="panel">
+    <h2>Results for: <span class="small">{{ target }}</span></h2>
+
+    {% if result and result.type == 'username' %}
+      <h3>Username Presence Check</h3>
+      <table>
+        <thead>
+          <tr><th>Platform</th><th>URL</th><th>Status</th><th>HTTP</th></tr>
+        </thead>
+        <tbody>
+        {% for r in result.results %}
+          <tr>
+            <td>{{ r.platform }}</td>
+            <td><a href="{{ r.url }}" target="_blank" rel="noopener" style="color:var(--accent)">{{ r.url }}</a></td>
+            <td class="{{ 'found' if r.found else 'notfound' }}">{{ 'Found' if r.found else 'Not Found' }}</td>
+            <td>{{ r.http_status if r.http_status is not none else '—' }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+
+      <form action="{{ url_for('send_tracenet_report') }}" method="POST" style="margin-top:12px;">
+        <input type="hidden" name="target" value="{{ target }}">
+        <button type="submit" style="padding:10px 16px; border-radius:6px; border:none; background:#007bff; color:#fff; font-weight:600;">
+          📧 Send Report to Email
+        </button>
+      </form>
+
+    {% elif result and result.type == 'email' %}
+      <h3>Email Breach Check</h3>
+
+      {% if result.status == 'no_api' %}
+        <p class="notfound">⚠️ HIBP API key not configured. Cannot check breaches.</p>
+      {% elif result.status == 'error' %}
+        <p class="notfound">❌ An error occurred while checking breaches.</p>
+      {% elif result.status == 'ok' and result.breaches is defined %}
+        {% if result.breaches|length == 0 %}
+          <p class="found">✅ No breaches found for this email.</p>
+        {% else %}
+          <p class="notfound">⚠️ This email was found in the following breaches:</p>
+          <ul>
+            {% for b in result.breaches %}
+              <li><strong>{{ b.Name }}</strong> — {{ b.BreachDate }} — {{ b.DataClasses | join(', ') }}</li>
+            {% endfor %}
+          </ul>
+
+          <form action="{{ url_for('send_tracenet_report') }}" method="POST" style="margin-top:12px;">
+            <input type="hidden" name="target" value="{{ target }}">
+            <input type="hidden" name="type" value="email">
+            <button type="submit" style="padding:10px 16px; border-radius:6px; border:none; background:#d32f2f; color:#fff; font-weight:600;">
+              📧 Send Breach Report
+            </button>
+           
+          </form>
+          
         {% endif %}
+      {% else %}
+        <p class="small">No breach information available.</p>
+      {% endif %}
+
+    {% else %}
+      <p class="small">No results available.</p>
     {% endif %}
-</body>
-</html>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

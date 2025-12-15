@@ -1,7 +1,9 @@
 # tools/tracenet.py
+
 import requests
 from urllib.parse import quote
 import os
+import re
 
 PLATFORMS = {
     "GitHub": "https://github.com/{username}",
@@ -22,7 +24,11 @@ HEADERS = {
 }
 REQUEST_TIMEOUT = 6
 
-def probe_profile(username, platform_url):
+
+def probe_profile(username: str, platform_url: str):
+    """
+    Probe a platform URL for the username. Returns (found_bool, url, http_status_or_None)
+    """
     url = platform_url.format(username=quote(username))
     try:
         r = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT, allow_redirects=True)
@@ -33,7 +39,11 @@ def probe_profile(username, platform_url):
     except requests.RequestException:
         return False, url, None
 
-def scan_username(username):
+
+def scan_username(username: str):
+    """
+    Scan all PLATFORMS for the username and return a list of result dicts.
+    """
     results = []
     for name, fmt in PLATFORMS.items():
         found, url, status = probe_profile(username, fmt)
@@ -45,10 +55,16 @@ def scan_username(username):
         })
     return results
 
-def hibp_breaches_for_email(email):
+
+def hibp_breaches_for_email(email: str):
+    """
+    Query HaveIBeenPwned for breaches related to an email.
+    Requires HIBP_API_KEY environment variable if you want a live check.
+    """
     api_key = os.getenv("HIBP_API_KEY")
     if not api_key:
-        return None
+        return {"status": "no_api", "breaches": None}
+
     url = f"https://haveibeenpwned.com/api/v3/breachedaccount/{quote(email)}"
     headers = {
         "hibp-api-key": api_key,
@@ -57,21 +73,30 @@ def hibp_breaches_for_email(email):
     try:
         r = requests.get(url, headers=headers, timeout=10, params={"truncateResponse": "false"})
         if r.status_code == 200:
-            return r.json()
+            return {"status": "ok", "breaches": r.json()}
         if r.status_code == 404:
-            return []
-        return None
+            return {"status": "ok", "breaches": []}
+        return {"status": "error", "breaches": None}
     except requests.RequestException:
-        return None
+        return {"status": "error", "breaches": None}
+
 
 class TraceNet:
-    def __init__(self, target):
+    """
+    Unified class: detect if target is email or username and run the appropriate check.
+    Returns dictionary shaped for the Jinja template.
+    """
+
+    def __init__(self, target: str):
         self.target = target.strip()
 
+    def is_email(self):
+        return bool(re.match(r"[^@]+@[^@]+\.[^@]+", self.target))
+
     def run_recon(self):
-        if "@" in self.target:
-            breaches = hibp_breaches_for_email(self.target)
-            return {"type": "email", "target": self.target, "breaches": breaches}
+        if self.is_email():
+            result = hibp_breaches_for_email(self.target)
+            return {"type": "email", "target": self.target, **result}
         else:
             results = scan_username(self.target)
             return {"type": "username", "target": self.target, "results": results}
